@@ -53,3 +53,58 @@ def test_main_multiple_allow_dirs(monkeypatch, tmp_path):
         server.main()
     assert dir_a in server._config.allowed_dirs
     assert dir_b in server._config.allowed_dirs
+
+
+def test_install_auto_start_creates_bootstrap_and_rprofile(monkeypatch, tmp_path, capsys):
+    from rstudio_mcp import server
+
+    monkeypatch.setattr(server.Path, "home", lambda: tmp_path)
+    monkeypatch.setattr("sys.argv", ["rstudio-mcp", "--install-auto-start"])
+
+    server.main()
+
+    bootstrap = tmp_path / ".rstudio-mcp" / "bootstrap.R"
+    rprofile = tmp_path / ".Rprofile"
+    assert bootstrap.exists()
+    assert "httpuv::startServer" in bootstrap.read_text(encoding="utf-8")
+    assert rprofile.exists()
+    assert server._RPROFILE_SNIPPET in rprofile.read_text(encoding="utf-8")
+    out = capsys.readouterr().out
+    assert "Installed auto-start" in out
+
+
+def test_install_auto_start_is_idempotent(monkeypatch, tmp_path):
+    from rstudio_mcp import server
+
+    monkeypatch.setattr(server.Path, "home", lambda: tmp_path)
+    monkeypatch.setattr("sys.argv", ["rstudio-mcp", "--install-auto-start"])
+
+    server.main()
+    server.main()
+
+    rprofile = (tmp_path / ".Rprofile").read_text(encoding="utf-8")
+    assert rprofile.count(server._RPROFILE_SNIPPET) == 1
+
+
+def test_uninstall_auto_start_removes_snippet_but_keeps_bootstrap(monkeypatch, tmp_path, capsys):
+    from rstudio_mcp import server
+
+    monkeypatch.setattr(server.Path, "home", lambda: tmp_path)
+    (tmp_path / ".rstudio-mcp").mkdir()
+    bootstrap = tmp_path / ".rstudio-mcp" / "bootstrap.R"
+    bootstrap.write_text("bootstrap", encoding="utf-8")
+    (tmp_path / ".Rprofile").write_text(
+        "options(stringsAsFactors = FALSE)\n"
+        f"{server._RPROFILE_SNIPPET}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("sys.argv", ["rstudio-mcp", "--uninstall-auto-start"])
+
+    server.main()
+
+    assert bootstrap.exists()
+    rprofile = (tmp_path / ".Rprofile").read_text(encoding="utf-8")
+    assert server._RPROFILE_SNIPPET not in rprofile
+    assert "options(stringsAsFactors = FALSE)" in rprofile
+    out = capsys.readouterr().out
+    assert "Removed auto-start" in out

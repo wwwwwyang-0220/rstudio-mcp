@@ -90,6 +90,27 @@ You can then interact with the R session from Codex or Claude using natural lang
 - *"Preview the data frame `df`"*
 - *"Add a new column to `df` filled with 0"*
 
+## Optional: enable automatic startup in RStudio
+
+If you do not want to run `rstudio-mcp --print-r-server` manually for every new RStudio session, install the auto-start setup once:
+
+```bash
+rstudio-mcp --install-auto-start
+```
+
+This command:
+
+- writes `~/.rstudio-mcp/bootstrap.R`
+- ensures your `~/.Rprofile` sources that bootstrap file
+
+After that, each new interactive RStudio session will automatically start the local bridge when possible.
+
+To remove the `.Rprofile` hook later:
+
+```bash
+rstudio-mcp --uninstall-auto-start
+```
+
 ## What happens if you forget to start the RStudio bridge
 
 If you forget to start the RStudio-side bridge, the MCP checks at runtime whether `httpuv` is reachable.
@@ -123,5 +144,9 @@ You do not need to remember this setup step manually anymore.
 --port              httpuv port (default: 6312)
 --allow-dir PATH    Authorize a directory for `.R` file access; repeatable
 --enable-execution  Enable the `r_execute_code` tool
+--install-auto-start
+                    Install or update the per-user RStudio auto-start bootstrap
+--uninstall-auto-start
+                    Remove the auto-start snippet from `~/.Rprofile`
 --print-r-server    Print the R bootstrap script and exit
 ```
