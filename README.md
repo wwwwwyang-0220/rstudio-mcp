@@ -109,6 +109,8 @@ To remove the `.Rprofile` hook later:
 rstudio-mcp --uninstall-auto-start
 ```
 
+The bridge will normally stop when you restart the R session, explicitly run `rm(list = ls(all.names = TRUE))`, or manually stop the server.
+
 ## What happens if you forget to start the RStudio bridge
 
 If you forget to start the RStudio-side bridge, the MCP checks at runtime whether `httpuv` is reachable.

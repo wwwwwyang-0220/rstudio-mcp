@@ -24,8 +24,9 @@ _R_SERVER_SCRIPT = textwrap.dedent("""\
     # Prerequisites (install once):
     #   install.packages(c("httpuv", "jsonlite"))
 
-    if (!exists(".mcp_server") || is.null(.mcp_server)) {
-      .mcp_server <- httpuv::startServer("127.0.0.1", 6312, list(
+    server <- getOption("rstudio.mcp.server")
+    if (is.null(server)) {
+      server <- httpuv::startServer("127.0.0.1", 6312, list(
         call = function(req) {
           tryCatch({
             body_raw  <- req$rook.input$read(-1L)
@@ -68,6 +69,7 @@ _R_SERVER_SCRIPT = textwrap.dedent("""\
           })
         }
       ))
+      options(rstudio.mcp.server = server)
       message("MCP httpuv server started on 127.0.0.1:6312")
     } else {
       message("MCP httpuv server already running")
@@ -86,8 +88,7 @@ _BOOTSTRAP_SCRIPT = textwrap.dedent("""\
                  !requireNamespace("jsonlite", quietly = TRUE)) {
         message("rstudio-mcp auto-start skipped: install.packages(c(\\"httpuv\\", \\"jsonlite\\"))")
         invisible(NULL)
-      } else if (exists(".mcp_server", envir = .GlobalEnv) &&
-                 !is.null(get(".mcp_server", envir = .GlobalEnv))) {
+      } else if (!is.null(getOption("rstudio.mcp.server"))) {
         invisible(NULL)
       } else {
 """ + textwrap.indent(_R_SERVER_SCRIPT, "    ") + """

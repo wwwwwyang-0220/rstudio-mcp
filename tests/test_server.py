@@ -66,7 +66,11 @@ def test_install_auto_start_creates_bootstrap_and_rprofile(monkeypatch, tmp_path
     bootstrap = tmp_path / ".rstudio-mcp" / "bootstrap.R"
     rprofile = tmp_path / ".Rprofile"
     assert bootstrap.exists()
-    assert "httpuv::startServer" in bootstrap.read_text(encoding="utf-8")
+    bootstrap_text = bootstrap.read_text(encoding="utf-8")
+    assert "httpuv::startServer" in bootstrap_text
+    assert 'getOption("rstudio.mcp.server")' in bootstrap_text
+    assert "options(rstudio.mcp.server = server)" in bootstrap_text
+    assert ".mcp_server" not in bootstrap_text
     assert rprofile.exists()
     assert server._RPROFILE_SNIPPET in rprofile.read_text(encoding="utf-8")
     out = capsys.readouterr().out
