@@ -70,7 +70,20 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ## Usage
 
-Each time you open a new RStudio session, run this once in a terminal:
+Recommended setup: install automatic startup once:
+
+```bash
+rstudio-mcp --install-auto-start
+```
+
+This command:
+
+- writes `~/.rstudio-mcp/bootstrap.R`
+- ensures your `~/.Rprofile` sources that bootstrap file
+
+After that, each new interactive RStudio session will automatically start the local bridge when possible.
+
+If you prefer a one-off manual startup instead, run this once in a terminal for the current RStudio session:
 
 ```bash
 rstudio-mcp --print-r-server
@@ -89,21 +102,6 @@ You can then interact with the R session from Codex or Claude using natural lang
 - *"List all objects in the current environment"*
 - *"Preview the data frame `df`"*
 - *"Add a new column to `df` filled with 0"*
-
-## Optional: enable automatic startup in RStudio
-
-If you do not want to run `rstudio-mcp --print-r-server` manually for every new RStudio session, install the auto-start setup once:
-
-```bash
-rstudio-mcp --install-auto-start
-```
-
-This command:
-
-- writes `~/.rstudio-mcp/bootstrap.R`
-- ensures your `~/.Rprofile` sources that bootstrap file
-
-After that, each new interactive RStudio session will automatically start the local bridge when possible.
 
 To remove the `.Rprofile` hook later:
 
