@@ -73,6 +73,6 @@ class RserveClient:
         if self._conn is None:
             self.connect()
         try:
-            self._conn.r[name] = value
+            setattr(self._conn.r, name, value)
         except Exception as exc:
             raise RserveEvalError(f"Failed to assign R variable '{name}': {exc}") from exc

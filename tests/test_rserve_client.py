@@ -115,8 +115,9 @@ def test_eval_capture_wraps_in_capture_output():
 def test_assign_r_sets_r_variable():
     client = RserveClient()
     client._conn = make_mock_conn()
-    client.assign_r(".__test__", "hello world")
-    client._conn.r.__setitem__.assert_called_once_with(".__test__", "hello world")
+    client.assign_r("test_var", "hello world")
+    # setattr(conn.r, name, value) — MagicMock stores it as a real attribute
+    assert client._conn.r.test_var == "hello world"
 
 
 # ── close ─────────────────────────────────────────────────────────────────────
