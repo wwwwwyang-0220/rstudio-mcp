@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 import json
 import pytest
 from rstudio_mcp.tools.session import (
+    r_check_session,
     r_list_objects,
     r_describe_object,
     r_preview_object,
@@ -18,6 +19,39 @@ def make_client(*, eval_r=None, eval_capture=None):
     client.eval_r.return_value = eval_r
     client.eval_capture.return_value = eval_capture or []
     return client
+
+
+# ── r_check_session ───────────────────────────────────────────────────────────
+
+def _mock_session_result(count=1):
+    """Build the dict that pyRserve would return from the r_check_session R expression."""
+    return {"pid": 12345, "version": "R version 4.5.1", "wd": "/Users/test", "count": count}
+
+
+def test_r_check_session_healthy_returns_json():
+    client = make_client(eval_r=_mock_session_result(count=1))
+    result = json.loads(r_check_session(client))
+    assert result["connected"] is True
+    assert result["pid"] == 12345
+    assert result["rserve_process_count"] == 1
+    assert "warning" not in result
+
+
+def test_r_check_session_multiple_rserve_includes_warning():
+    client = make_client(eval_r=_mock_session_result(count=3))
+    result = json.loads(r_check_session(client))
+    assert result["rserve_process_count"] == 3
+    assert "warning" in result
+    assert "pkill" in result["warning"]
+    assert "Rserve(args=" in result["warning"]
+
+
+def test_r_check_session_connection_error_returns_not_connected():
+    client = MagicMock()
+    client.eval_r.side_effect = RserveConnectionError("refused")
+    result = json.loads(r_check_session(client))
+    assert result["connected"] is False
+    assert "error" in result
 
 
 # ── r_list_objects ─────────────────────────────────────────────────────────────

@@ -18,6 +18,15 @@ def _setup(config: ServerConfig) -> None:
 
 
 @_mcp.tool()
+def r_check_session() -> str:
+    """Checks the connected R session health.
+    Reports PID, R version, working directory, and warns if multiple Rserve
+    processes are detected (which would mean MCP is talking to a stale session).
+    """
+    return session.r_check_session(_client)
+
+
+@_mcp.tool()
 def r_list_objects() -> str:
     """Returns all object names in the R global environment as a JSON array."""
     return session.r_list_objects(_client)

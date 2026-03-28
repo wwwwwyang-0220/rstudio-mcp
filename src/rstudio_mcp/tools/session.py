@@ -64,6 +64,59 @@ def r_summarize_object(client: RserveClient, name: str) -> str:
         return f"Connection error: {exc}"
 
 
+def r_check_session(client: RserveClient) -> str:
+    """Checks connected R session health and warns if multiple Rserve processes are detected.
+
+    Returns JSON with pid, R version, working directory, rserve_process_count,
+    and an actionable warning message when count > 1.
+    """
+    # Count Rserve processes via shell from within R.
+    # pgrep is available on macOS and Linux; falls back to 1 on error.
+    _CHECK_EXPR = """\
+local({
+  pid     <- Sys.getpid()
+  version <- R.version$version.string
+  wd      <- getwd()
+  count   <- tryCatch(
+    as.integer(system("pgrep -c Rserve 2>/dev/null", intern = TRUE)),
+    warning = function(w) 1L,
+    error   = function(e) 1L
+  )
+  if (length(count) == 0 || is.na(count)) count <- 1L
+  list(pid = pid, version = version, wd = wd, count = count)
+})"""
+    try:
+        result = client.eval_r(_CHECK_EXPR)
+        pid     = int(result["pid"])
+        version = str(result["version"])
+        wd      = str(result["wd"])
+        count   = int(result["count"])
+
+        info: dict = {
+            "connected": True,
+            "pid": pid,
+            "r_version": version,
+            "working_directory": wd,
+            "rserve_process_count": count,
+        }
+
+        if count > 1:
+            info["warning"] = (
+                f"检测到 {count} 个 Rserve 进程正在运行。"
+                "MCP 很可能连接到了一个旧的后台 R 进程，而不是你当前的交互式 RStudio 会话，"
+                "这会导致你在 RStudio 里看不到 MCP 创建的变量。"
+                "修复方法：\n"
+                "  1. 在终端运行：pkill -f Rserve\n"
+                "  2. 在你当前的 RStudio 控制台重新运行：\n"
+                "       library(Rserve)\n"
+                "       Rserve(args='--no-save')"
+            )
+
+        return json.dumps(info, ensure_ascii=False)
+    except (RserveConnectionError, RserveEvalError) as exc:
+        return json.dumps({"connected": False, "error": str(exc)})
+
+
 def r_get_history(client: RserveClient, n: int = 20) -> str:
     """Returns last n commands as JSON array, read from .Rhistory in R working dir."""
     expr = _HISTORY_EXPR.format(n=n)
