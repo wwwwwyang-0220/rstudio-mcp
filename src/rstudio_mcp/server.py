@@ -50,13 +50,13 @@ def r_get_history(n: int = 20) -> str:
 @_mcp.tool()
 def r_list_scripts(directory: str) -> str:
     """Lists .R files within an authorized directory."""
-    return filesystem.r_list_scripts(_config, directory)
+    return filesystem.r_list_scripts(_config, _client, directory)
 
 
 @_mcp.tool()
 def r_read_script(path: str) -> str:
     """Returns full text content of an authorized .R file."""
-    return filesystem.r_read_script(_config, path)
+    return filesystem.r_read_script(_config, _client, path)
 
 
 @_mcp.tool()
