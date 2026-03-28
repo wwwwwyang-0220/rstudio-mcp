@@ -3,17 +3,14 @@ import json
 from rstudio_mcp.config import ServerConfig
 from rstudio_mcp.rserve_client import RserveClient, RserveConnectionError, RserveEvalError
 
-_EVAL_EXPR = "capture.output(eval(parse(text=.__mcp_expr__), envir=.GlobalEnv))"
-
-
 def r_execute_code(
     config: ServerConfig, client: RserveClient, expression: str
 ) -> str:
     """Execute R expression in .GlobalEnv and return stdout + stderr as JSON.
 
     Disabled by default; requires config.execution_enabled = True.
-    Expression is passed via pyRserve variable assignment to avoid all
-    string-escaping issues (quotes, backslashes, newlines all safe).
+    json.dumps() produces a valid R string literal (double-quoted, special chars
+    escaped), so the expression is embedded directly — no temp variable needed.
     """
     if not config.execution_enabled:
         return json.dumps({
@@ -24,14 +21,9 @@ def r_execute_code(
         })
 
     try:
-        # Assign expression string to R variable (pyRserve handles serialization)
-        client.assign_r(".__mcp_expr__", expression)
-
-        # Evaluate and capture printed output
-        raw = client.eval_r(_EVAL_EXPR)
-
-        # Clean up temp variable from .GlobalEnv
-        client.eval_r("rm(.__mcp_expr__)")
+        # Embed expression as a JSON string literal (valid R string syntax)
+        r_code = f"capture.output(eval(parse(text={json.dumps(expression)}), envir=.GlobalEnv))"
+        raw = client.eval_r(r_code)
 
         if raw is None:
             stdout: list[str] = []

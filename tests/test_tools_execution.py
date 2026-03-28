@@ -1,5 +1,5 @@
-from unittest.mock import MagicMock
 import json
+from unittest.mock import MagicMock
 import pytest
 from rstudio_mcp.config import ServerConfig
 from rstudio_mcp.tools.execution import r_execute_code
@@ -25,8 +25,7 @@ def disabled_config():
 # ── disabled by default ───────────────────────────────────────────────────────
 
 def test_execute_disabled_returns_error_json():
-    client = make_client()
-    result = json.loads(r_execute_code(disabled_config(), client, "1 + 1"))
+    result = json.loads(r_execute_code(disabled_config(), make_client(), "1 + 1"))
     assert "error" in result
     assert "disabled" in result["error"].lower()
 
@@ -34,7 +33,6 @@ def test_execute_disabled_returns_error_json():
 def test_execute_disabled_never_calls_rserve():
     client = make_client()
     r_execute_code(disabled_config(), client, "1 + 1")
-    client.assign_r.assert_not_called()
     client.eval_r.assert_not_called()
 
 
@@ -47,27 +45,25 @@ def test_execute_enabled_returns_stdout():
     assert result["stderr"] == []
 
 
-def test_execute_assigns_expression_to_temp_var():
-    """Expression must be assigned via assign_r to avoid escaping issues."""
+def test_execute_embeds_expression_via_json_dumps():
+    """Expression must be embedded as json.dumps() string literal, not via temp variable."""
     client = make_client(eval_r_return=[])
-    r_execute_code(enabled_config(), client, 'x <- "hello world"')
-    client.assign_r.assert_any_call(".__mcp_expr__", 'x <- "hello world"')
+    expression = 'x <- "hello world"\nprint(x)'
+    r_execute_code(enabled_config(), client, expression)
+    call_expr = client.eval_r.call_args[0][0]
+    # json.dumps produces the expression as a valid JSON/R string inside the R call
+    assert json.dumps(expression) in call_expr
+    assert "parse(text=" in call_expr
+    assert ".__mcp_expr__" not in call_expr  # old temp-variable approach must NOT be used
 
 
-def test_execute_evals_via_parse_text_temp_var():
-    """R eval must reference the temp variable, not an inline string."""
-    client = make_client(eval_r_return=[])
-    r_execute_code(enabled_config(), client, "1 + 1")
-    eval_calls = [str(c) for c in client.eval_r.call_args_list]
-    assert any(".__mcp_expr__" in c for c in eval_calls)
-
-
-def test_execute_cleans_up_temp_var():
-    """.__mcp_expr__ must be removed from .GlobalEnv after execution."""
-    client = make_client(eval_r_return=[])
-    r_execute_code(enabled_config(), client, "1 + 1")
-    eval_calls = [str(c) for c in client.eval_r.call_args_list]
-    assert any("rm(.__mcp_expr__)" in c for c in eval_calls)
+def test_execute_special_chars_in_expression():
+    """Expressions with quotes, backslashes, newlines must work via json.dumps embedding."""
+    client = make_client(eval_r_return=["[1] \"hello\""])
+    expression = 'cat("hello\\nworld")'
+    r_execute_code(enabled_config(), client, expression)
+    call_expr = client.eval_r.call_args[0][0]
+    assert json.dumps(expression) in call_expr
 
 
 def test_execute_empty_output_returns_empty_stdout():
@@ -91,7 +87,6 @@ def test_execute_r_eval_error_returns_stderr():
     client.eval_r.side_effect = RserveEvalError("object 'x' not found")
     result = json.loads(r_execute_code(enabled_config(), client, "x"))
     assert result["stdout"] == []
-    assert len(result["stderr"]) > 0
     assert "not found" in result["stderr"][0]
 
 
