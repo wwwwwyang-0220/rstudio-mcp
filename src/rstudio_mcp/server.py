@@ -1,27 +1,87 @@
 from __future__ import annotations
 import argparse
+import textwrap
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 from rstudio_mcp.config import ServerConfig
-from rstudio_mcp.rserve_client import RserveClient
+from rstudio_mcp.r_client import RHttpClient
 from rstudio_mcp.tools import session, filesystem, execution
 
 _mcp = FastMCP("RStudio Session Inspector")
 _config: ServerConfig = ServerConfig()
-_client: RserveClient = RserveClient()
+_client: RHttpClient = RHttpClient()
+
+# R script the user must run once in their RStudio session to start the
+# in-process httpuv server.  Printed via --print-r-server.
+_R_SERVER_SCRIPT = textwrap.dedent("""\
+    # ── RStudio MCP httpuv server ────────────────────────────────────────────
+    # Run this once in your RStudio console.  The server runs in-process so
+    # every variable Claude creates is immediately visible in your environment.
+    #
+    # Prerequisites (install once):
+    #   install.packages(c("httpuv", "jsonlite"))
+
+    if (!exists(".mcp_server") || is.null(.mcp_server)) {
+      .mcp_server <- httpuv::startServer("127.0.0.1", 6312, list(
+        call = function(req) {
+          tryCatch({
+            body_raw  <- req$rook.input$read(-1L)
+            payload   <- jsonlite::fromJSON(rawToChar(body_raw))
+            expr      <- payload$expression
+            mode      <- if (!is.null(payload$mode)) payload$mode else "capture"
+
+            if (mode == "value") {
+              result <- eval(parse(text = expr), envir = .GlobalEnv)
+              value_json <- jsonlite::toJSON(result, auto_unbox = TRUE, null = "null")
+              out <- jsonlite::toJSON(
+                list(value = as.character(value_json), error = NULL),
+                auto_unbox = TRUE, null = "null"
+              )
+            } else {
+              lines <- capture.output(
+                eval(parse(text = expr), envir = .GlobalEnv)
+              )
+              out <- jsonlite::toJSON(
+                list(stdout = as.character(lines), error = NULL),
+                auto_unbox = FALSE, null = "null"
+              )
+            }
+
+            list(
+              status  = 200L,
+              headers = list("Content-Type" = "application/json"),
+              body    = out
+            )
+          }, error = function(e) {
+            out <- jsonlite::toJSON(
+              list(error = conditionMessage(e)),
+              auto_unbox = TRUE
+            )
+            list(
+              status  = 200L,
+              headers = list("Content-Type" = "application/json"),
+              body    = out
+            )
+          })
+        }
+      ))
+      message("MCP httpuv server started on 127.0.0.1:6312")
+    } else {
+      message("MCP httpuv server already running")
+    }
+""")
 
 
 def _setup(config: ServerConfig) -> None:
     global _config, _client
     _config = config
-    _client = RserveClient(host=config.host, port=config.port)
+    _client = RHttpClient(host=config.host, port=config.port)
 
 
 @_mcp.tool()
 def r_check_session() -> str:
     """Checks the connected R session health.
-    Reports PID, R version, working directory, and warns if multiple Rserve
-    processes are detected (which would mean MCP is talking to a stale session).
+    Reports PID, R version, and working directory.
     """
     return session.r_check_session(_client)
 
@@ -82,14 +142,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--host",
-        default="localhost",
-        help="Rserve host (default: localhost)",
+        default="127.0.0.1",
+        help="httpuv R server host (default: 127.0.0.1)",
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=6311,
-        help="Rserve port (default: 6311)",
+        default=6312,
+        help="httpuv R server port (default: 6312)",
     )
     parser.add_argument(
         "--allow-dir",
@@ -105,7 +165,17 @@ def main() -> None:
         default=False,
         help="Enable r_execute_code (disabled by default for safety)",
     )
+    parser.add_argument(
+        "--print-r-server",
+        action="store_true",
+        default=False,
+        help="Print the R httpuv server setup script and exit",
+    )
     args = parser.parse_args()
+
+    if args.print_r_server:
+        print(_R_SERVER_SCRIPT)
+        return
 
     config = ServerConfig(
         host=args.host,

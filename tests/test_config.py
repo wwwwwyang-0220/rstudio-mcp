@@ -5,8 +5,8 @@ from rstudio_mcp.config import ServerConfig
 
 def test_default_config():
     cfg = ServerConfig()
-    assert cfg.host == "localhost"
-    assert cfg.port == 6311
+    assert cfg.host == "127.0.0.1"
+    assert cfg.port == 6312
     assert cfg.allowed_dirs == []
     assert cfg.execution_enabled is False
 

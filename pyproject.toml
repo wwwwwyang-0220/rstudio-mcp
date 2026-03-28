@@ -5,10 +5,27 @@ build-backend = "hatchling.build"
 [project]
 name = "rstudio-mcp"
 version = "0.1.0"
+description = "Expose a live RStudio session to MCP-capable clients."
+readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "My Macstudio", email = "weibinyang@missouri.edu" },
+]
+keywords = ["mcp", "rstudio", "r", "llm", "codex", "claude"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "mcp>=1.0.0",
-    "pyRserve>=0.9.0",
 ]
 
 [project.optional-dependencies]

@@ -8,8 +8,8 @@ def test_main_default_config(monkeypatch):
     monkeypatch.setattr("sys.argv", ["rstudio-mcp"])
     with patch.object(server._mcp, "run"):
         server.main()
-    assert server._config.host == "localhost"
-    assert server._config.port == 6311
+    assert server._config.host == "127.0.0.1"
+    assert server._config.port == 6312
     assert server._config.execution_enabled is False
     assert server._config.allowed_dirs == []
 

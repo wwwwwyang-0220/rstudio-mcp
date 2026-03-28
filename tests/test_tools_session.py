@@ -23,27 +23,19 @@ def make_client(*, eval_r=None, eval_capture=None):
 
 # ── r_check_session ───────────────────────────────────────────────────────────
 
-def _mock_session_result(count=1):
-    """Build the dict that pyRserve would return from the r_check_session R expression."""
-    return {"pid": 12345, "version": "R version 4.5.1", "wd": "/Users/test", "count": count}
+def _mock_session_result():
+    """Build the dict that the R httpuv server returns from the r_check_session R expression."""
+    return {"pid": 12345, "version": "R version 4.5.1", "wd": "/Users/test"}
 
 
 def test_r_check_session_healthy_returns_json():
-    client = make_client(eval_r=_mock_session_result(count=1))
+    client = make_client(eval_r=_mock_session_result())
     result = json.loads(r_check_session(client))
     assert result["connected"] is True
     assert result["pid"] == 12345
-    assert result["rserve_process_count"] == 1
+    assert result["r_version"] == "R version 4.5.1"
+    assert result["working_directory"] == "/Users/test"
     assert "warning" not in result
-
-
-def test_r_check_session_multiple_rserve_includes_warning():
-    client = make_client(eval_r=_mock_session_result(count=3))
-    result = json.loads(r_check_session(client))
-    assert result["rserve_process_count"] == 3
-    assert "warning" in result
-    assert "pkill" in result["warning"]
-    assert "Rserve(args=" in result["warning"]
 
 
 def test_r_check_session_connection_error_returns_not_connected():
@@ -52,6 +44,8 @@ def test_r_check_session_connection_error_returns_not_connected():
     result = json.loads(r_check_session(client))
     assert result["connected"] is False
     assert "error" in result
+    assert result["next_step"]["command"] == "rstudio-mcp --print-r-server"
+    assert "RStudio Console" in result["next_step"]["instructions"]
 
 
 # ── r_list_objects ─────────────────────────────────────────────────────────────

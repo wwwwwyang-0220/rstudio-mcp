@@ -5,8 +5,8 @@ from pathlib import Path
 
 @dataclass
 class ServerConfig:
-    host: str = "localhost"
-    port: int = 6311
+    host: str = "127.0.0.1"
+    port: int = 6312
     allowed_dirs: list[Path] = field(default_factory=list)
     execution_enabled: bool = False
 
